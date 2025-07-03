@@ -41,3 +41,8 @@ Creamos la carpeta app/chat y dentro de ella
 Creamos el archivor server.js
 - npm init -y
 - npm install express socket.io cors
+
+## Dependencias para neon
+```bash
+npm install pg sequelize pg-hstore dotenv bcryptjs
+```
