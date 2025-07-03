@@ -3,60 +3,128 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+require('dotenv').config();
+
+// Importar modelos
+const { User, Message } = require('./models');
 
 const app = express();
 app.use(cors());
+app.use(express.json());
 
-app.use(express.static(path.join(__dirname, 'web-build')));
-
-
-app.get('/', (req, res) => {
-    res.send('Servidor corriendo');
-    // res.sendFile(path.join(__dirname, 'web-build', 'index.html'));
-})
+// Servir archivos estáticos
+app.use(express.static(path.join(__dirname, 'public')));
 
 const server = http.createServer(app);
 
+// Configuración de Socket.IO
 const io = new Server(server, {
   cors: {
-    origin: '*', // En producción, reemplaza con tu URL de frontend
+    origin: '*',
     methods: ['GET', 'POST']
   }
 });
 
-// Almacén de usuarios conectados
+// Almacén temporal de usuarios conectados
 const users = {};
 
-io.on('connection', (socket) => {
-  console.log('Usuario conectado:', socket.id);
+// Manejo de conexiones de Socket.IO
+io.on('connection', async (socket) => {
+  console.log('Nuevo cliente conectado:', socket.id);
 
   // Manejar nuevo usuario
-  socket.on('new_user', (username) => {
-    users[socket.id] = username;
-    io.emit('user_connected', username);
+  socket.on('new_user', async (username) => {
+    try {
+      const user = await User.findOne({ where: { username } });
+      if (!user) {
+        return socket.emit('error', 'Usuario no encontrado');
+      }
+      
+      // Guardar referencia del usuario
+      users[socket.id] = {
+        id: user.id,
+        username: user.username
+      };
+      
+      // Notificar a todos los usuarios
+      io.emit('user_connected', {
+        userId: user.id,
+        username: user.username
+      });
+      
+      // Enviar historial de mensajes
+      const messages = await Message.findAll({
+        include: [{
+          model: User,
+          attributes: ['id', 'username', 'avatar']
+        }],
+        order: [['createdAt', 'ASC']],
+        limit: 50
+      });
+      
+      socket.emit('message_history', messages);
+      
+    } catch (error) {
+      console.error('Error en new_user:', error);
+      socket.emit('error', 'Error al conectar usuario');
+    }
   });
 
   // Manejar mensajes
-  socket.on('send_message', (data) => {
-    io.emit('receive_message', {
-      ...data,
-      userId: socket.id,
-      username: users[socket.id]
-    });
+  socket.on('send_message', async (data) => {
+    try {
+      const { content, room = 'general' } = data;
+      const user = users[socket.id];
+      
+      if (!user) {
+        return socket.emit('error', 'No autenticado');
+      }
+
+      // Guardar mensaje en la base de datos
+      const message = await Message.create({
+        content,
+        room,
+        userId: user.id
+      });
+
+      // Obtener el mensaje con los datos del usuario
+      const messageWithUser = await Message.findByPk(message.id, {
+        include: [{
+          model: User,
+          attributes: ['id', 'username', 'avatar']
+        }]
+      });
+
+      // Enviar a todos los clientes
+      io.emit('receive_message', messageWithUser);
+      
+    } catch (error) {
+      console.error('Error en send_message:', error);
+      socket.emit('error', 'Error al enviar mensaje');
+    }
   });
 
   // Manejar desconexión
   socket.on('disconnect', () => {
-    const username = users[socket.id];
-    if (username) {
-      io.emit('user_disconnected', username);
+    const user = users[socket.id];
+    if (user) {
+      io.emit('user_disconnected', {
+        userId: user.id,
+        username: user.username
+      });
       delete users[socket.id];
     }
-    console.log('Usuario desconectado:', socket.id);
+    console.log('Cliente desconectado:', socket.id);
   });
 });
 
-const PORT = 3000;
+// Ruta de prueba
+app.get('/api/status', (req, res) => {
+  res.json({ status: 'Servidor funcionando correctamente' });
+});
+
+const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Servidor Socket.IO escuchando en el puerto ${PORT}`);
+  console.log(`Servidor escuchando en el puerto ${PORT}`);
+  console.log(`Accede a http://10.10.15.6:${PORT} para probar la aplicación`);
 });

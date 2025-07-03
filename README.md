@@ -46,3 +46,8 @@ Creamos el archivor server.js
 ```bash
 npm install pg sequelize pg-hstore dotenv bcryptjs
 ```
+
+## Dependencias para el servidor
+```bash
+npm install express-session passport passport-local
+```

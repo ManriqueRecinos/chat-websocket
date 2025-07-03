@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chat en Tiem Real</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    #messages { height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-bottom: 20px; }
+    .message { margin-bottom: 10px; padding: 8px; background: #f0f0f0; border-radius: 5px; }
+    .message .user { font-weight: bold; color: #333; }
+    .message .time { font-size: 0.8em; color: #666; }
+    #messageForm { display: flex; gap: 10px; }
+    #messageInput { flex: 1; padding: 8px; }
+    button { padding: 8px 16px; }
+  </style>
+</head>
+<body>
+  <h1>Chat en Tiem Real</h1>
+  
+  <div id="loginForm">
+    <h2>Iniciar Sesión</h2>
+    <input type="text" id="usernameInput" placeholder="Nombre de usuario" />
+    <input type="password" id="passwordInput" placeholder="Contraseña" />
+    <button onclick="login()">Ingresar</button>
+  </div>
+
+  <div id="chatContainer" style="display: none;">
+    <h2>Sala de Chat</h2>
+    <div id="messages"></div>
+    <form id="messageForm" onsubmit="sendMessage(event)">
+      <input type="text" id="messageInput" placeholder="Escribe un mensaje..." required />
+      <button type="submit">Enviar</button>
+    </form>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    let currentUser = null;
+
+    // Elementos del DOM
+    const loginForm = document.getElementById('loginForm');
+    const chatContainer = document.getElementById('chatContainer');
+    const messagesDiv = document.getElementById('messages');
+    const messageForm = document.getElementById('messageForm');
+    const messageInput = document.getElementById('messageInput');
+
+    // Manejar login
+    function login() {
+      const username = document.getElementById('usernameInput').value;
+      const password = document.getElementById('passwordInput').value;
+      
+      // En una aplicación real, aquí iría la autenticación con el servidor
+      // Por ahora, solo usamos el nombre de usuario
+      if (username) {
+        currentUser = { username };
+        socket.emit('new_user', username);
+        loginForm.style.display = 'none';
+        chatContainer.style.display = 'block';
+      }
+    }
+
+    // Enviar mensaje
+    function sendMessage(event) {
+      event.preventDefault();
+      const content = messageInput.value.trim();
+      if (content && currentUser) {
+        socket.emit('send_message', { 
+          content,
+          room: 'general'
+        });
+        messageInput.value = '';
+      }
+    }
+
+    // Escuchar mensajes
+    socket.on('receive_message', (message) => {
+      const messageElement = document.createElement('div');
+      messageElement.className = 'message';
+      messageElement.innerHTML = `
+        <div class="user">${message.User.username}</div>
+        <div class="content">${message.content}</div>
+        <div class="time">${new Date(message.createdAt).toLocaleTimeString()}</div>
+      `;
+      messagesDiv.appendChild(messageElement);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+
+    // Escuchar historial de mensajes
+    socket.on('message_history', (messages) => {
+      messagesDiv.innerHTML = '';
+      messages.forEach(message => {
+        const messageElement = document.createElement('div');
+        messageElement.className = 'message';
+        messageElement.innerHTML = `
+          <div class="user">${message.User.username}</div>
+          <div class="content">${message.content}</div>
+          <div class="time">${new Date(message.createdAt).toLocaleTimeString()}</div>
+        `;
+        messagesDiv.appendChild(messageElement);
+      });
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+
+    // Manejar errores
+    socket.on('error', (error) => {
+      alert(`Error: ${error}`);
+    });
+
+    // Permitir enviar mensaje con Enter
+    messageInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage(e);
+      }
+    });
+  </script>
+</body>
+</html>
