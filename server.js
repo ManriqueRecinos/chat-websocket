@@ -7,11 +7,15 @@ const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 // Importar modelos
-const { User, Message } = require('./models');
+const { User, Message, Connection } = require('./models');
+
+// Importar controlador de conexiones
+const connectionController = require('./controllers/connectionController');
 
 // Importar rutas
 const authRoutes = require('./routes/auth');
 const uploadRoutes = require('./routes/upload');
+const connectionRoutes = require('./routes/connections');
 
 const app = express();
 app.use(cors());
@@ -23,6 +27,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Usar rutas de autenticación
 app.use('/api/auth', authRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/connections', connectionRoutes);
 
 const server = http.createServer(app);
 
@@ -36,10 +41,22 @@ const io = new Server(server, {
 
 // Almacén temporal de usuarios conectados
 const users = {};
+// Contador de usuarios conectados
+let onlineUsersCount = 0;
+
+// Función para actualizar y emitir el contador de usuarios en línea
+function updateOnlineUsersCount() {
+  io.emit('online_users_count', { count: onlineUsersCount });
+  console.log(`Usuarios en línea: ${onlineUsersCount}`);
+}
 
 // Manejo de conexiones de Socket.IO
 io.on('connection', async (socket) => {
   console.log('Nuevo cliente conectado:', socket.id);
+
+  // Incrementar contador de usuarios en línea
+  onlineUsersCount++;
+  updateOnlineUsersCount();
 
   // Manejar conexión de nuevo usuario
   socket.on('new_user', async (data) => {
@@ -81,6 +98,14 @@ io.on('connection', async (socket) => {
       
       // Guardar usuario en el socket
       socket.user = user;
+      
+      // Registrar la conexión en la base de datos
+      try {
+        const connection = await connectionController.registerConnection(user.id);
+        console.log(`Conexión registrada en la base de datos para ${user.username} (ID: ${user.id})`);
+      } catch (connError) {
+        console.error('Error al registrar conexión en la base de datos:', connError);
+      }
       
       // Notificar al usuario que se ha conectado
       socket.emit('user_joined', {
@@ -161,15 +186,35 @@ io.on('connection', async (socket) => {
   });
 
   // Manejar desconexión
-  socket.on('disconnect', () => {
-    const user = users[socket.id];
+  socket.on('disconnect', async () => {
+    // Verificar si hay un usuario asociado al socket
+    const user = socket.user || users[socket.id];
+    
     if (user) {
+      // Notificar a todos los usuarios
       io.emit('user_disconnected', {
         userId: user.id,
         username: user.username
       });
-      delete users[socket.id];
+      
+      // Registrar la desconexión en la base de datos
+      try {
+        const disconnection = await connectionController.registerDisconnection(user.id);
+        console.log(`Desconexión registrada en la base de datos para ${user.username} (ID: ${user.id})`);
+      } catch (connError) {
+        console.error('Error al registrar desconexión en la base de datos:', connError);
+      }
+      
+      // Eliminar usuario del registro temporal
+      if (users[socket.id]) {
+        delete users[socket.id];
+      }
     }
+    
+    // Decrementar contador de usuarios en línea
+    onlineUsersCount = Math.max(0, onlineUsersCount - 1);
+    updateOnlineUsersCount();
+    
     console.log('Cliente desconectado:', socket.id);
   });
 });
