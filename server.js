@@ -8,12 +8,18 @@ require('dotenv').config();
 // Importar modelos
 const { User, Message } = require('./models');
 
+// Importar rutas
+const authRoutes = require('./routes/auth');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // Servir archivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Usar rutas de autenticación
+app.use('/api/auth', authRoutes);
 
 const server = http.createServer(app);
 
