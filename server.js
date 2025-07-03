@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 // Importar modelos
@@ -10,6 +11,7 @@ const { User, Message } = require('./models');
 
 // Importar rutas
 const authRoutes = require('./routes/auth');
+const uploadRoutes = require('./routes/upload');
 
 const app = express();
 app.use(cors());
@@ -20,6 +22,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // Usar rutas de autenticación
 app.use('/api/auth', authRoutes);
+app.use('/api/upload', uploadRoutes);
 
 const server = http.createServer(app);
 
@@ -38,22 +41,49 @@ const users = {};
 io.on('connection', async (socket) => {
   console.log('Nuevo cliente conectado:', socket.id);
 
-  // Manejar nuevo usuario
-  socket.on('new_user', async (username) => {
+  // Manejar conexión de nuevo usuario
+  socket.on('new_user', async (data) => {
     try {
-      const user = await User.findOne({ where: { username } });
-      if (!user) {
-        return socket.emit('error', 'Usuario no encontrado');
+      // Verificar si recibimos un objeto con token o solo un username
+      const username = typeof data === 'object' ? data.username : data;
+      const token = typeof data === 'object' ? data.token : null;
+      
+      let user;
+      
+      // Si hay token, verificarlo
+      if (token) {
+        try {
+          // Verificar el token JWT
+          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key');
+          
+          // Buscar usuario por ID desde el token
+          user = await User.findByPk(decoded.id);
+          
+          if (!user) {
+            return socket.emit('error', 'Usuario no encontrado');
+          }
+          
+          console.log(`Usuario autenticado con token: ${user.username}`);
+        } catch (tokenError) {
+          console.error('Error al verificar token:', tokenError);
+          return socket.emit('error', 'Token inválido');
+        }
+      } else {
+        // Modo de compatibilidad: buscar por nombre de usuario
+        user = await User.findOne({ where: { username } });
+        
+        if (!user) {
+          return socket.emit('error', 'Usuario no encontrado');
+        }
+        
+        console.log(`Usuario autenticado sin token: ${user.username}`);
       }
       
-      // Guardar referencia del usuario
-      users[socket.id] = {
-        id: user.id,
-        username: user.username
-      };
+      // Guardar usuario en el socket
+      socket.user = user;
       
-      // Notificar a todos que el usuario se ha unido
-      io.emit('user_joined', {
+      // Notificar al usuario que se ha conectado
+      socket.emit('user_joined', {
         userId: user.id,
         username: user.username
       });
@@ -85,34 +115,35 @@ io.on('connection', async (socket) => {
   // Manejar mensajes
   socket.on('send_message', async (data) => {
     try {
-      const { content, room = 'general' } = data;
-      const user = users[socket.id];
-      
-      if (!user) {
-        return socket.emit('error', 'No autenticado');
+      if (!socket.user) {
+        return socket.emit('error', 'Debes iniciar sesión para enviar mensajes');
       }
 
-      // Guardar mensaje en la base de datos
+      // Crear mensaje en la base de datos con soporte para imágenes
       const message = await Message.create({
-        content,
-        room,
-        userId: user.id
+        content: data.content || '',
+        imageUrl: data.imageUrl || null,
+        messageType: data.messageType || 'text',
+        room: data.room || 'general',
+        UserId: socket.user.id
       });
 
-      // Obtener el mensaje con los datos del usuario
+      // Cargar el usuario asociado al mensaje
       const messageWithUser = await Message.findByPk(message.id, {
-        include: [{
-          model: User,
-          attributes: ['id', 'username', 'avatar']
-        }]
+        include: [User]
       });
 
-      // Enviar a todos los clientes
+      // Emitir mensaje a todos los usuarios (sin filtrar por sala por ahora)
       io.emit('receive_message', messageWithUser);
       
+      // Registrar el tipo de mensaje en la consola
+      console.log(`Mensaje tipo ${data.messageType} enviado por ${socket.user.username}`);
+      if (data.imageUrl) {
+        console.log('Imagen incluida en el mensaje');
+      }
     } catch (error) {
-      console.error('Error en send_message:', error);
-      socket.emit('error', 'Error al enviar mensaje');
+      console.error('Error al enviar mensaje:', error);
+      socket.emit('error', 'Error al enviar el mensaje');
     }
   });
 
@@ -131,8 +162,8 @@ io.on('connection', async (socket) => {
 });
 
 // Ruta de prueba
-app.get('/api/status', (req, res) => {
-  res.json({ status: 'Servidor funcionando correctamente' });
+app.get('/api/test', (req, res) => {
+  res.json({ message: 'API funcionando correctamente' });
 });
 
 const PORT = process.env.PORT || 3000;

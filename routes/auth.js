@@ -4,6 +4,7 @@ const { User } = require('../models');
 const { Op } = require('sequelize');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const bcrypt = require('bcryptjs');
 
 // Ruta para registrar un nuevo usuario
 router.post('/register', async (req, res) => {
@@ -68,6 +69,55 @@ router.post('/register', async (req, res) => {
       success: false, 
       message: 'Error al registrar el usuario' 
     });
+  }
+});
+
+// Ruta para iniciar sesión
+router.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+
+    // Validar datos
+    if (!username || !password) {
+      return res.status(400).json({ success: false, message: 'Nombre de usuario y contraseña son obligatorios' });
+    }
+
+    // Buscar el usuario
+    const user = await User.findOne({ where: { username } });
+
+    // Verificar si el usuario existe
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
+    }
+
+    // Verificar la contraseña
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ success: false, message: 'Credenciales inválidas' });
+    }
+
+    // Generar token JWT
+    const token = jwt.sign(
+      { id: user.id, username: user.username },
+      process.env.JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    // Responder con los datos del usuario y el token
+    res.json({
+      success: true,
+      message: 'Inicio de sesión exitoso',
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        avatar: user.avatar
+      },
+      token
+    });
+  } catch (error) {
+    console.error('Error al iniciar sesión:', error);
+    res.status(500).json({ success: false, message: 'Error al iniciar sesión' });
   }
 });
 
