@@ -119,13 +119,17 @@ io.on('connection', async (socket) => {
         return socket.emit('error', 'Debes iniciar sesión para enviar mensajes');
       }
 
+      // Asegurarnos de usar el ID del usuario autenticado
+      const userId = socket.user.id;
+      console.log(`Mensaje recibido de usuario ID: ${userId}, username: ${socket.user.username}`);
+
       // Crear mensaje en la base de datos con soporte para imágenes
       const message = await Message.create({
         content: data.content || '',
         imageUrl: data.imageUrl || null,
         messageType: data.messageType || 'text',
         room: data.room || 'general',
-        UserId: socket.user.id
+        userId: userId // Usar el ID del usuario autenticado (nombre del campo en minúscula según la relación definida)
       });
 
       // Cargar el usuario asociado al mensaje
@@ -133,11 +137,20 @@ io.on('connection', async (socket) => {
         include: [User]
       });
 
+      // Asegurarnos de que el mensaje incluya la información del usuario
+      const messageToSend = {
+        ...messageWithUser.toJSON(),
+        User: {
+          id: socket.user.id,
+          username: socket.user.username
+        }
+      };
+
       // Emitir mensaje a todos los usuarios (sin filtrar por sala por ahora)
-      io.emit('receive_message', messageWithUser);
+      io.emit('receive_message', messageToSend);
       
       // Registrar el tipo de mensaje en la consola
-      console.log(`Mensaje tipo ${data.messageType} enviado por ${socket.user.username}`);
+      console.log(`Mensaje tipo ${data.messageType} enviado por ${socket.user.username} (ID: ${userId})`);
       if (data.imageUrl) {
         console.log('Imagen incluida en el mensaje');
       }

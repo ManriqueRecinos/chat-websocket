@@ -22,6 +22,14 @@ const Message = sequelize.define('Message', {
   messageType: {
     type: DataTypes.ENUM('text', 'image', 'mixed'),
     defaultValue: 'text'
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
   }
 });
 

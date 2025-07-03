@@ -504,19 +504,36 @@
     const disconnectSound = document.getElementById('disconnectSound');
     
     // Funciones para reproducir sonidos
-    function playConnectionSound() {
-      notificationSound.currentTime = 0;
-      notificationSound.play().catch(err => console.log('Error al reproducir sonido:', err));
+    function playMessageSound() {
+      // Usar nuestro sonido personalizado no alarmante
+      if (window.playNotificationSound) {
+        window.playNotificationSound();
+      } else {
+        // Fallback si el script de sonido no está cargado
+        const audio = new Audio('https://cdn.freesound.org/previews/573/573629_5674468-lq.mp3');
+        audio.volume = 0.2; // Volumen más bajo para que no sea alarmante
+        audio.play().catch(e => console.log('Error reproduciendo sonido:', e));
+      }
     }
     
-    function playMessageSound() {
-      messageSound.currentTime = 0;
-      messageSound.play().catch(err => console.log('Error al reproducir sonido:', err));
+    function playConnectionSound() {
+      if (window.playNotificationSound) {
+        window.playNotificationSound();
+      } else {
+        const audio = new Audio('https://cdn.freesound.org/previews/536/536782_11861866-lq.mp3');
+        audio.volume = 0.15;
+        audio.play().catch(e => console.log('Error reproduciendo sonido:', e));
+      }
     }
     
     function playDisconnectSound() {
-      disconnectSound.currentTime = 0;
-      disconnectSound.play().catch(err => console.log('Error al reproducir sonido:', err));
+      if (window.playNotificationSound) {
+        window.playNotificationSound();
+      } else {
+        const audio = new Audio('https://cdn.freesound.org/previews/536/536783_11861866-lq.mp3');
+        audio.volume = 0.15;
+        audio.play().catch(e => console.log('Error reproduciendo sonido:', e));
+      }
     }
 
     function showTab(tabName) {
@@ -684,12 +701,14 @@
       if (content && currentImageUrl) messageType = 'mixed';
       else if (currentImageUrl) messageType = 'image';
       
-      // Enviar mensaje
+      // Enviar mensaje con información del usuario emisor
       socket.emit('send_message', {
         content,
         imageUrl: currentImageUrl,
         messageType,
-        room: 'general'
+        room: 'general',
+        userId: currentUser.id,
+        username: currentUser.username
       });
       
       // Limpiar campos
@@ -757,7 +776,22 @@
       let contentHtml = '';
       
       // Añadir el nombre de usuario con avatar
-      const username = message.User?.username || 'Anónimo';
+      // Asegurarnos de que siempre se muestre el nombre real del usuario que envió el mensaje
+      let username;
+      
+      // Primero intentamos obtener el nombre del objeto User asociado al mensaje (desde la BD)
+      if (message.User && message.User.username) {
+        username = message.User.username;
+      }
+      // Si no está disponible, usamos el username enviado directamente en el mensaje
+      else if (message.username) {
+        username = message.username;
+      }
+      // Como último recurso
+      else {
+        username = 'Usuario';
+      }
+      
       const userInitial = username.charAt(0).toUpperCase();
       contentHtml += `
         <div class="user">
@@ -813,7 +847,8 @@
       }
     });
   </script>
-  <!-- Bootstrap JS Bundle con Popper -->
+  <script src="/socket.io/socket.io.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/sounds/notification.js"></script>
 </body>
 </html>
