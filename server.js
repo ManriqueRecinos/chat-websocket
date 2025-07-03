@@ -46,6 +46,12 @@ io.on('connection', async (socket) => {
         username: user.username
       };
       
+      // Notificar a todos que el usuario se ha unido
+      io.emit('user_joined', {
+        userId: user.id,
+        username: user.username
+      });
+      
       // Notificar a todos los usuarios
       io.emit('user_connected', {
         userId: user.id,

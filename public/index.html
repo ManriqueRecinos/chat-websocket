@@ -1,72 +1,248 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Chat en Tiem Real</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kikes chat</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-    #messages { height: 400px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; margin-bottom: 20px; }
-    .message { margin-bottom: 10px; padding: 8px; background: #f0f0f0; border-radius: 5px; }
-    .message .user { font-weight: bold; color: #333; }
-    .message .time { font-size: 0.8em; color: #666; }
-    #messageForm { display: flex; gap: 10px; }
-    #messageInput { flex: 1; padding: 8px; }
-    button { padding: 8px 16px; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f8f9fa;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+    }
+
+    h1, h2 {
+      text-align: center;
+      color: #343a40;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 600px;
+      padding: 20px;
+    }
+
+    #loginForm, #chatContainer {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    input[type="text"], input[type="password"] {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 12px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    button {
+      padding: 10px 20px;
+      background-color: #0d6efd;
+      border: none;
+      color: #fff;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    button:hover {
+      background-color: #0b5ed7;
+    }
+
+    #messages {
+      height: 300px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 10px;
+      background: #f1f1f1;
+      margin-bottom: 15px;
+      border-radius: 8px;
+    }
+
+    .message {
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 6px;
+      max-width: 75%;
+      clear: both;
+      position: relative;
+      word-break: break-word;
+    }
+    .my-message {
+      background: #d1e7dd;
+      color: #0f5132;
+      margin-left: auto;
+      margin-right: 0;
+      text-align: right;
+      border-top-right-radius: 0;
+      box-shadow: 1px 1px 8px #b8e2c6ad;
+      float: right;
+      align-self: flex-end;
+    }
+    .other-message {
+      margin-right: auto;
+      margin-left: 0;
+      text-align: left;
+      border-top-left-radius: 0;
+      box-shadow: 1px 1px 8px #d0d0d0ad;
+      float: left;
+      align-self: flex-start;
+    }
+
+    .message .user {
+      font-weight: bold;
+      color: #495057;
+    }
+
+    .message .content {
+      margin: 5px 0;
+    }
+
+    .message .time {
+      font-size: 0.75em;
+      color: #6c757d;
+      text-align: right;
+    }
+
+    #messageForm {
+      display: flex;
+      gap: 10px;
+    }
+
+    #messageInput {
+      flex: 1;
+      padding: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    @media (max-width: 600px) {
+      #messageForm {
+        flex-direction: column;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+    
+    /* Animación para las notificaciones */
+    @keyframes highlightNotification {
+      0% { background-color: #fff8e1; }
+      50% { background-color: #ffecb3; }
+      100% { background-color: #fff8e1; }
+    }
+    
+    .notification {
+      text-align: center;
+      color: #5d4037;
+      font-size: 0.9em;
+      margin: 15px auto;
+      background-color: #fff8e1;
+      border-radius: 20px;
+      padding: 8px 15px;
+      font-weight: 500;
+      border: 1px solid #ffe082;
+      width: 80%;
+      clear: both;
+      display: block;
+      float: none;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+      animation: highlightNotification 2s ease;
+    }
   </style>
 </head>
 <body>
-  <h1>Chat en Tiem Real</h1>
+  <div class="container">
+    <h1>Kikes Chat</h1>
+
+    <div id="loginForm">
+      <h2>Iniciar Sesión</h2>
+      <input type="text" id="usernameInput" placeholder="Nombre de usuario" />
+      <input type="password" id="passwordInput" placeholder="Contraseña" />
+      <button onclick="login()">Ingresar</button>
+    </div>
+
+    <div id="chatContainer" style="display: none;">
+      <h2>Sala de Chat</h2>
+      <div id="messages"></div>
+      <form id="messageForm" onsubmit="sendMessage(event)">
+        <input type="text" id="messageInput" placeholder="Escribe un mensaje..." required />
+        <button type="submit">Enviar</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Audios para notificaciones -->
+  <audio id="notificationSound" preload="auto">
+    <source src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_0625c1539c.mp3?filename=notification-sound-7062.mp3" type="audio/mp3">
+  </audio>
+  <audio id="messageSound" preload="auto">
+    <source src="https://cdn.pixabay.com/download/audio/2022/03/10/audio_2c8a9e5ed7.mp3?filename=message-incoming-132126.mp3" type="audio/mp3">
+  </audio>
+  <audio id="disconnectSound" preload="auto">
+    <source src="https://cdn.pixabay.com/download/audio/2021/08/04/audio_c8c8a73acc.mp3?filename=intuition-561.mp3" type="audio/mp3">
+  </audio>
   
-  <div id="loginForm">
-    <h2>Iniciar Sesión</h2>
-    <input type="text" id="usernameInput" placeholder="Nombre de usuario" />
-    <input type="password" id="passwordInput" placeholder="Contraseña" />
-    <button onclick="login()">Ingresar</button>
-  </div>
-
-  <div id="chatContainer" style="display: none;">
-    <h2>Sala de Chat</h2>
-    <div id="messages"></div>
-    <form id="messageForm" onsubmit="sendMessage(event)">
-      <input type="text" id="messageInput" placeholder="Escribe un mensaje..." required />
-      <button type="submit">Enviar</button>
-    </form>
-  </div>
-
   <script src="/socket.io/socket.io.js"></script>
   <script>
     const socket = io();
     let currentUser = null;
 
-    // Elementos del DOM
     const loginForm = document.getElementById('loginForm');
     const chatContainer = document.getElementById('chatContainer');
     const messagesDiv = document.getElementById('messages');
-    const messageForm = document.getElementById('messageForm');
     const messageInput = document.getElementById('messageInput');
+    
+    // Elementos de audio
+    const notificationSound = document.getElementById('notificationSound');
+    const messageSound = document.getElementById('messageSound');
+    const disconnectSound = document.getElementById('disconnectSound');
+    
+    // Funciones para reproducir sonidos
+    function playConnectionSound() {
+      notificationSound.currentTime = 0;
+      notificationSound.play().catch(err => console.log('Error al reproducir sonido:', err));
+    }
+    
+    function playMessageSound() {
+      messageSound.currentTime = 0;
+      messageSound.play().catch(err => console.log('Error al reproducir sonido:', err));
+    }
+    
+    function playDisconnectSound() {
+      disconnectSound.currentTime = 0;
+      disconnectSound.play().catch(err => console.log('Error al reproducir sonido:', err));
+    }
 
-    // Manejar login
     function login() {
-      const username = document.getElementById('usernameInput').value;
-      const password = document.getElementById('passwordInput').value;
-      
-      // En una aplicación real, aquí iría la autenticación con el servidor
-      // Por ahora, solo usamos el nombre de usuario
+      const username = document.getElementById('usernameInput').value.trim();
+      const password = document.getElementById('passwordInput').value.trim();
+
       if (username) {
         currentUser = { username };
         socket.emit('new_user', username);
         loginForm.style.display = 'none';
         chatContainer.style.display = 'block';
+      } else {
+        alert("Por favor, introduce un nombre de usuario.");
       }
     }
 
-    // Enviar mensaje
     function sendMessage(event) {
       event.preventDefault();
       const content = messageInput.value.trim();
       if (content && currentUser) {
-        socket.emit('send_message', { 
+        socket.emit('send_message', {
           content,
           room: 'general'
         });
@@ -74,41 +250,88 @@
       }
     }
 
-    // Escuchar mensajes
     socket.on('receive_message', (message) => {
-      const messageElement = document.createElement('div');
-      messageElement.className = 'message';
-      messageElement.innerHTML = `
-        <div class="user">${message.User.username}</div>
+      appendMessage(message);
+      // Solo reproducir sonido si el mensaje no es mío
+      if (!currentUser || !message.User || message.User.username !== currentUser.username) {
+        playMessageSound();
+      }
+    });
+
+    socket.on('user_joined', (data) => {
+      appendNotification(`${data.username} se ha unido al chat.`);
+      playConnectionSound();
+    });
+
+    socket.on('user_connected', (data) => {
+      appendNotification(`${data.username} se ha conectado.`);
+      playConnectionSound();
+    });
+
+    socket.on('user_disconnected', (data) => {
+      appendNotification(`${data.username} ha salido del chat.`);
+      playDisconnectSound();
+    });
+
+    socket.on('message_history', (messages) => {
+      messagesDiv.innerHTML = '';
+      messages.forEach(appendMessage);
+      messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
+
+    function stringToColor(str) {
+      // Genera un color pastel HSL único para cada string
+      let hash = 0;
+      for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const hue = Math.abs(hash) % 360;
+      // Saturación baja/media (35-55%), Luminosidad alta (80-90%) para pastel
+      const sat = 35 + (Math.abs(hash) % 21); // 35-55%
+      const lum = 82 + (Math.abs(hash) % 9);  // 82-90%
+      // Color de texto siempre oscuro para contraste
+      const textColor = '#222';
+      return {bg: `hsl(${hue}, ${sat}%, ${lum}%)`, text: textColor};
+    }
+
+    function appendMessage(message) {
+      const div = document.createElement('div');
+      let isMine = currentUser && message.User && message.User.username === currentUser.username;
+      let style = '';
+      if (!isMine && message.User && message.User.username) {
+        const color = stringToColor(message.User.username);
+        style = `background: ${color.bg}; color: ${color.text};`;
+      }
+      div.className = isMine
+        ? 'message my-message'
+        : 'message other-message';
+      div.innerHTML = `
+        <div class="user">${message.User?.username || 'Anónimo'}</div>
         <div class="content">${message.content}</div>
         <div class="time">${new Date(message.createdAt).toLocaleTimeString()}</div>
       `;
-      messagesDiv.appendChild(messageElement);
+      if (!isMine) div.style = style;
+      messagesDiv.appendChild(div);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    });
+    }
 
-    // Escuchar historial de mensajes
-    socket.on('message_history', (messages) => {
-      messagesDiv.innerHTML = '';
-      messages.forEach(message => {
-        const messageElement = document.createElement('div');
-        messageElement.className = 'message';
-        messageElement.innerHTML = `
-          <div class="user">${message.User.username}</div>
-          <div class="content">${message.content}</div>
-          <div class="time">${new Date(message.createdAt).toLocaleTimeString()}</div>
-        `;
-        messagesDiv.appendChild(messageElement);
-      });
+    function appendNotification(text) {
+      const notificationText = `Mostrando notificación: ${text}`;
+      console.log(notificationText); // Para depuración
+      
+      const div = document.createElement('div');
+      div.className = 'notification';
+      div.innerText = notificationText;
+      
+      // Insertar la notificación en el chat
+      messagesDiv.appendChild(div);
       messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    });
+    }
 
-    // Manejar errores
     socket.on('error', (error) => {
       alert(`Error: ${error}`);
     });
 
-    // Permitir enviar mensaje con Enter
     messageInput.addEventListener('keypress', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
