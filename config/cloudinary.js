@@ -1,12 +1,13 @@
 const cloudinary = require('cloudinary').v2;
 const { CloudinaryStorage } = require('multer-storage-cloudinary');
 const multer = require('multer');
+require('dotenv').config();
 
-// Configuración de Cloudinary
+// Configuración de Cloudinary usando variables de entorno
 cloudinary.config({
-  cloud_name: 'ds1gk7zla',
-  api_key: '565965692788896',
-  api_secret: 'Ti0iiLxrYCRbBaY1V-AdYDONirM'
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
 // Configuración del almacenamiento para imágenes de chat
