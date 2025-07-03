@@ -38,3 +38,6 @@ export const socket = io(URL, {
 Creamos la carpeta app/chat y dentro de ella
 - index.js
 - login.js
+Creamos el archivor server.js
+- npm init -y
+- npm install express socket.io cors
